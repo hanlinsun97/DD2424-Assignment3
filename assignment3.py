@@ -23,12 +23,15 @@ def LoadBatch(dataset_name):
     return data, label, data_length, label_no_onehot
 
 
-def initialization(m):
-    W1 = np.random.normal(0,0.001,[m,3072])
-    W2 = np.random.normal(0,0.001,[10,m])
-    b1 = np.random.normal(0,0.0000001,[m,1]) #It's just zeros
-    b2 = np.random.normal(0,0.0000001,[10,1])
-    return W1, W2, b1, b2
+def initialization(W_b_dimension):
+    list_W = []
+    list_b = []
+    list_W.append(np.random.normal(0,0.001,[3072,W_b_dimension[0]]))
+    list_b.append(np.zeros(W_b_dimension[0]))
+    for i in range(1,np.size(W_b_dimension)):
+        list_W.append(np.random.normal(0,0.001,[W_b_dimension[i],W_b_dimension[i-1]]))
+        list_b.append(np.zeros(W_b_dimension[i]))
+    return list_W, list_b
 
 def ComputeCost(label, lam, batch_size, P, W1, W2):
     Y = label
@@ -165,10 +168,9 @@ learning_rate = 0.028
 rho = 0.9
 m = 10 #number of hidden nodes
 MAX = 20
-
 decay_rate = 0.95
 training_data = 10000
-
+W_b_dimension = np.array([100,100,100])
 #Load data and initialization
 
 [data_1, label_1, data_length_1, label_no_onehot_1] = LoadBatch("data_batch_1.mat")
@@ -194,7 +196,8 @@ for j in range(1):
 
 #    learning_rate = np.random.uniform(lr_min, lr_max)
 #    lam = np.random.uniform(lam_min, lam_max)
-    [W1, W2, b1, b2] = initialization(m)
+    [list_W, list_b] = initialization(W_b_dimension)
+    exit()
     lr = learning_rate # Store the origin learning rate before weight decay.
     J_store_1 = []
     J_store_2 = []
@@ -263,102 +266,12 @@ for j in range(1):
         acc_2.append(acc)
         loss_store_2.append(loss)
         #print(epoch, acc)
-#    print([lam,  lr, acc_1[MAX-1], acc_2[MAX-1]])
-    # value.append([lam,  lr, acc_1[MAX-1], acc_2[MAX-1]])
-#
-# learning_rate = 0.028
-# for j in range(1):
-#
-#     # learning_rate = np.random.uniform(lr_min, lr_max)
-#     # lam = np.random.uniform(lam_min, lam_max)
-#     [W1, W2, b1, b2] = initialization(m)
-#     lr = learning_rate # Store the origin learning rate before weight decay.
-#     J_store_1_x = []
-#     J_store_2_x = []
-#     loss_store_1_x = []
-#     loss_store_2_x = []
-#     acc_1_x = []
-#     acc_2_x = []
-#     v_b1 = 0
-#     v_b2 = 0
-#     v_W1 = 0
-#     v_W2 = 0 #Initialization of momentum
-#
-#     for epoch in range(MAX):
-#         learning_rate = learning_rate * decay_rate
-#             #print("This is epoch",epoch)
-#             #learning_rate = learning_rate * 0.9
-#          #for i in range(int(training_data/batch_size)):
-#         for i in range(1):
-#
-#             input_data = data_1[:,i*batch_size:(i+1)*batch_size]
-#             input_label = label_1[:,i*batch_size:(i+1)*batch_size]
-#             input_label_no_onehot = label_no_onehot_1[i*batch_size:(i+1)*batch_size]
-#             s1 = Compute_S(W1, b1, input_data)
-#             h = Compute_h(s1)
-#             s2 = Compute_S(W2,b2,h)
-#             P = EvaluationClassifier(s2)  # 10 * Batch_size
-#             grad_W1, grad_W2,  grad_b1, grad_b2 = ComputeGradients_correct(W1, W2, b1, b2, P, input_data, input_label, lam, batch_size, m, h)
-#
-#             [v_b1, v_b2, v_W1, v_W2] = Compute_momentum(grad_W1, grad_W2, grad_b1, grad_b2, v_b1, v_b2, v_W1, v_W2)
-#             W1 = W1 - v_W1
-#             W2 = W2 - v_W2
-#             b1 = b1 - v_b1
-#             b2 = b2 - v_b2
-#
-#
-#         s1 = Compute_S(W1,b1,data_1)
-#         #s1 = Compute_S(W1,b1,input_data)
-#         h = Compute_h(s1)
-#         s2 = Compute_S(W2, b2, h)
-#         P_use = EvaluationClassifier(s2)
-#         J,loss = ComputeCost(label_1, lam, data_length_1, P_use,W1,W2)
-#         acc = ComputeAccuracy(P_use,label_no_onehot_1, data_length_1)
-#         #J,loss = ComputeCost(input_label, lam, 100 , P_use,W1,W2)
-#         #acc = ComputeAccuracy(P_use,input_label_no_onehot, 100)
-#         J_store_1_x.append(J)
-#         acc_1_x.append(acc)
-#         loss_store_1_x.append(loss)
-#
-#             # We run our model on validation set
-#
-#
-#         s1 = Compute_S(W1,b1,data_2)
-#         h = Compute_h(s1)
-#         s2 = Compute_S(W2, b2, h)
-#         P_use = EvaluationClassifier(s2)
-#
-#         J,loss = ComputeCost(label_2, lam, data_length_2, P_use,W1,W2)
-#         acc = ComputeAccuracy(P_use, label_no_onehot_2, data_length_2)
-#         J_store_2_x.append(J)
-#         acc_2_x.append(acc)
-#         loss_store_2_x.append(loss)
-#     #    print(epoch, acc)
-#     print([lam,  lr, acc_1[MAX-1], acc_2[MAX-1]])
-#     value.append([lam,  lr, acc_1[MAX-1], acc_2[MAX-1]])
-# print(J_store_1_x)
-# print(J_store_1)
-
-
 
 
 
 x_axis = range(MAX)
 
-
-#W = W - np.min(W)
-#W = W/np.max(W)
-#pic = np.reshape(W[0,:],[32,32,3])
-#dataNew = 'W.mat'
-#np.savetxt('W_opti.txt',W)
-#pic = pic.transpose(2,1,3)
-#pic2 = np.reshape(np.floor(data_1[:,1]*255),[32,32,3])
-#pic2 = pic2.transpose(1,0,2)
-#plt.figure(1)
-#plt.imshow(pic)
-#figure
-
-plt.figure(2)
+plt.figure(1)
 plt.xlabel("epoch")
 plt.ylabel("cost")
 plt.plot(x_axis,J_store_1,'r',label='training data')
@@ -367,14 +280,15 @@ plt.plot(x_axis,J_store_2,'g',label='validation data')
 plt.legend()
 plt.savefig('cost.png')
 
-plt.figure(3)
+plt.figure(2)
 plt.xlabel("epoch")
 plt.ylabel("accuracy")
 plt.plot(x_axis,acc_1,'r',label='training data')
 plt.plot(x_axis,acc_2,'g',label='validation data')
 plt.legend()
 plt.savefig('accuracy.jpg')
-plt.figure(4)
+
+plt.figure(3)
 plt.xlabel("epoch")
 plt.ylabel("loss")
 plt.plot(x_axis,loss_store_1,'r',label='training data')
