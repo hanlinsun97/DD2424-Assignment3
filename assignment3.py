@@ -68,13 +68,20 @@ def Compute_P(list_W, list_b, input_data):
     Num = len(list_W)
     for i in range(Num-1):
         s = Compute_S(list_W[i].T, list_b[i], list_x[i])
+        mu = np.mean(s,1)
+        mu = np.reshape(mu,[np.size(mu),1])
+        v = np.mean(np.power(s-mu,2),1)
+        v = np.reshape(v,[np.size(v),1])
+        s = BatchNormalize(s,mu,v)
         h = Compute_h(s) #RELU    # h = sigmoid(s)
         list_x.append(h)
     s = Compute_S(list_W[Num-1].T, list_b[Num-1], h)
     list_s.append(s)
     P = EvaluationClassifier(s)  # 10 * Batch_size
     return P
-
+def BatchNormalize(s,mu,v):
+    s_hat = (s-mu)/np.sqrt(np.diag(v+0.0001)) #In case of dividing by 0
+    return s_hat
 
 def ComputeGradients(list_W, list_b, input_data, input_label, lam, batch_size):
 
@@ -86,6 +93,11 @@ def ComputeGradients(list_W, list_b, input_data, input_label, lam, batch_size):
     Num = len(list_W)
     for i in range(Num-1):
         s = Compute_S(list_W[i].T, list_b[i], list_x[i])
+        mu = np.mean(s,1)
+        mu = np.reshape(mu,[np.size(mu),1])
+        v = np.mean(np.power(s-mu,2),1)
+        v = np.reshape(v,[np.size(v),1])
+        s = BatchNormalize(s,mu,v)
         h = Compute_h(s) #RELU    # h = sigmoid(s)
         list_x.append(h)
     s = Compute_S(list_W[Num-1].T, list_b[Num-1], h)
@@ -194,12 +206,12 @@ def ComputeGradients_correct(W1, W2, b1, b2, P, input_data, input_label, lam, ba
 #Parameter
 batch_size = 100
 lam = 0.0
-learning_rate = 0.028
+learning_rate = 0.07
 rho = 0.9
 MAX = 40
 decay_rate = 0.95
 training_data = 10000
-W_b_dimension = np.array([50,10])
+W_b_dimension = np.array([100,50,100,50,10])
 #Load data and initialization
 
 [data_1, label_1, data_length_1, label_no_onehot_1] = LoadBatch("data_batch_1.mat")
