@@ -83,7 +83,7 @@ def BatchNormalize(s,mu,v):
     s_hat = (s-mu)/np.sqrt(np.diag(v+0.0001)) #In case of dividing by 0
     return s_hat
 
-def ComputeGradients(list_W, list_b, input_data, input_label, lam, batch_size):
+def ComputeGradients(list_W, list_b, input_data, input_label, lam, batch_size,alpha):
 
     # input_data with 3072 * Batch_size
     # input_label with 10 * Batch_size
@@ -205,13 +205,13 @@ def ComputeGradients_correct(W1, W2, b1, b2, P, input_data, input_label, lam, ba
 
 #Parameter
 batch_size = 100
-lam = 0.0
-learning_rate = 0.07
+lam = 0.0001
+learning_rate = 0.1
 rho = 0.9
-MAX = 40
-decay_rate = 0.95
+MAX = 20
+decay_rate = 0.9
 training_data = 10000
-W_b_dimension = np.array([100,50,100,50,10])
+W_b_dimension = np.array([50,10])
 #Load data and initialization
 
 [data_1, label_1, data_length_1, label_no_onehot_1] = LoadBatch("data_batch_1.mat")
