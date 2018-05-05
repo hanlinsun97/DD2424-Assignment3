@@ -27,9 +27,11 @@ def initialization(W_b_dimension):
     list_W = []
     list_b = []
     list_W.append(np.random.normal(0,0.001,[3072,W_b_dimension[0]]))
+#    list_b.append(np.random.normal(0,0.00001,[W_b_dimension[0],1]))
     list_b.append(np.zeros([W_b_dimension[0],1]))
     for i in range(1,np.size(W_b_dimension)):
         list_W.append(np.random.normal(0,0.001,[W_b_dimension[i-1],W_b_dimension[i]]))
+#        list_b.append(np.random.normal(0,0.00001,[W_b_dimension[i],1]))
         list_b.append(np.zeros([W_b_dimension[i],1]))
     return list_W, list_b
 
@@ -72,7 +74,7 @@ def Compute_P(list_W, list_b, input_data):
         mu = np.reshape(mu,[np.size(mu),1])
         v = np.mean(np.power(s-mu,2),1)
         v = np.reshape(v,[np.size(v),1])
-        s = BatchNormalize(s,mu,v)
+#        s = BatchNormalize(s,mu,v)
         h = Compute_h(s) #RELU    # h = sigmoid(s)
         list_x.append(h)
     s = Compute_S(list_W[Num-1].T, list_b[Num-1], h)
@@ -83,7 +85,7 @@ def BatchNormalize(s,mu,v):
     s_hat = (s-mu)/np.sqrt(np.diag(v+0.0001)) #In case of dividing by 0
     return s_hat
 
-def ComputeGradients(list_W, list_b, input_data, input_label, lam, batch_size,alpha):
+def ComputeGradients(list_W, list_b, input_data, input_label, lam, batch_size):
 
     # input_data with 3072 * Batch_size
     # input_label with 10 * Batch_size
@@ -97,7 +99,7 @@ def ComputeGradients(list_W, list_b, input_data, input_label, lam, batch_size,al
         mu = np.reshape(mu,[np.size(mu),1])
         v = np.mean(np.power(s-mu,2),1)
         v = np.reshape(v,[np.size(v),1])
-        s = BatchNormalize(s,mu,v)
+#        s = BatchNormalize(s,mu,v)
         h = Compute_h(s) #RELU    # h = sigmoid(s)
         list_x.append(h)
     s = Compute_S(list_W[Num-1].T, list_b[Num-1], h)
@@ -126,7 +128,7 @@ def ComputeGradients(list_W, list_b, input_data, input_label, lam, batch_size,al
 
 def ComputeAccuracy(P, input_label_no_onehot, batch_size):
     Q = P.argmax(axis=0)  # Predict label
-    #print(Q)
+#print(Q)
     Y = input_label_no_onehot
     diff = Q - Y
     acc = np.sum(diff == 0)/batch_size
@@ -139,44 +141,36 @@ def Compute_momentum(grad_W_list, grad_b_list, v_W_list, v_b_list):
         v_W_list[i] = rho * v_W_list[i] + learning_rate * grad_W_list[i]
     return v_W_list, v_b_list
 
-def ComputeGradients_correct(W1, W2, b1, b2, P, input_data, input_label, lam, batch_size, m, h):
-    small = 0.00000001
-    s1 = Compute_S(W1,b1,input_data)
-    h = Compute_h(s1)
-    s2 = Compute_S(W2, b2, h)
-    P = EvaluationClassifier(s2)
-    [c,_] = ComputeCost(input_label, lam, batch_size, P,W1,W2)
-    grad_b1 = np.zeros(np.shape(b1))
-    grad_b2 = np.zeros(np.shape(b2))
-    grad_W1 = np.zeros(np.shape(W1))
-    grad_W2 = np.zeros(np.shape(W2))
-    print(b1[0])
-    for i in range(np.size(b1)):
-        b1_try = b1
+def ComputeGradients_correct(list_W, list_b, input_data, input_label, lam, batch_size, layers):
+    small = 0.000001
+    P = Compute_P(list_W, list_b, input_data)
+    c, _ = ComputeCost(input_label, lam, batch_size, P, list_W)
+    grad_W_pseudo = []
+    grad_b_pseudo = []
 
-        b1_try[i] = b1_try[i] + small
+    for i in range(layers):
+        grad_W_pseudo.append(np.ones(np.shape(list_W[i])))
+        grad_b_pseudo.append(np.ones(np.shape(list_b[i])))
 
-        s1 = Compute_S(W1,b1_try,input_data)
-        h = Compute_h(s1)
-        s2 = Compute_S(W2, b2, h)
-        P = EvaluationClassifier(s2)
-        [c2,_] = ComputeCost(input_label, lam, batch_size, P,W1,W2)
-        b1[i] = b1[i] - small
-        grad_b1[i] = (c2-c)/small
+    for j in range(layers):
+        for i in range(np.size(list_b[j])):
+            b_try = list_b
+    #        print(list_b[0])
+#           print(b_try[0])
+            (b_try[j])[i] = (b_try[j])[i] + small
+            P = Compute_P(list_W, b_try, input_data)
+   #          print(P)
 
+	#       print(b_try[0])
+            c2, _ = ComputeCost(input_label, lam, batch_size, P, list_W)
 
-    for i in range(np.size(b2)):
-        b2_try = b2
-        b2_try[i] = b2_try[i] + small
+        #    print(list_b[0])
+            (grad_b_pseudo[j])[i] = (c2-c)/small
+            (b_try[j])[i] = (b_try[j])[i] - small
 
-        s1 = Compute_S(W1,b1,input_data)
-        h = Compute_h(s1)
-        s2 = Compute_S(W2, b2_try, h)
-        P = EvaluationClassifier(s2)
-        [c2,_] = ComputeCost(input_label, lam, batch_size, P,W1,W2)
-        b2[i] = b2[i] - small
-        grad_b2[i] = (c2-c)/small
+    return grad_W_pseudo, grad_b_pseudo
 
+'''
     for i in range(np.shape(W1)[0]):
         for j in range(np.shape(W1)[1]):
 
@@ -201,12 +195,13 @@ def ComputeGradients_correct(W1, W2, b1, b2, P, input_data, input_label, lam, ba
             [c2,_] = ComputeCost(input_label, lam, batch_size, P,W1,W_try)
             grad_W2[i][j] = (c2-c)/small
             W2 = W2 - small
-    return grad_W1, grad_W2, grad_b1, grad_b2
+            '''
+
 
 #Parameter
-batch_size = 100
-lam = 0.0001
-learning_rate = 0.1
+batch_size = 1
+lam = 0.0
+learning_rate = 0.05
 rho = 0.9
 MAX = 20
 decay_rate = 0.9
@@ -251,11 +246,16 @@ for j in range(1):
         learning_rate = learning_rate * 0.9
         for i in range(int(training_data/batch_size)):
         #for i in range(1):
+            layers = 2
             input_data = data_1[:,i*batch_size:(i+1)*batch_size]
             input_label = label_1[:,i*batch_size:(i+1)*batch_size]
             input_label_no_onehot = label_no_onehot_1[i*batch_size:(i+1)*batch_size]
-
             grad_W_list, grad_b_list = ComputeGradients(list_W, list_b, input_data, input_label, lam, batch_size)
+
+            grad_W_pseudo, grad_b_pseudo = ComputeGradients_correct(list_W, list_b, input_data, input_label, lam, batch_size, layers)
+            print((grad_b_list[1]-grad_b_pseudo[1])/grad_b_list[1])
+    
+            exit()
             [v_W_list, v_b_list] = Compute_momentum(grad_W_list, grad_b_list, v_W_list, v_b_list)
             for i in range(len(v_b_list)):
                 list_W[i] = list_W[i] - v_W_list[i]
