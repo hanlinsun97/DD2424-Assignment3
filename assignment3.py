@@ -44,6 +44,7 @@ def ComputeCost(label, lam, batch_size, P, list_W):
     return J, loss
 
 def softmax(x):
+
     return np.exp(x)/np.sum(np.exp(x), axis=0)
 
 def Compute_S(W, b, input_data):
@@ -64,7 +65,6 @@ def sigmoid(s):
     return h
 
 def Compute_P(list_W, list_b, input_data):
-    list_s = []
     list_x = []
     list_x.append(input_data)
     Num = len(list_W)
@@ -74,16 +74,35 @@ def Compute_P(list_W, list_b, input_data):
         mu = np.reshape(mu,[np.size(mu),1])
         v = np.mean(np.power(s-mu,2),1)
         v = np.reshape(v,[np.size(v),1])
-#        s = BatchNormalize(s,mu,v)
+        if(BN==1):
+            s = BatchNormalize(s,mu,v)
         h = Compute_h(s) #RELU    # h = sigmoid(s)
         list_x.append(h)
     s = Compute_S(list_W[Num-1].T, list_b[Num-1], h)
-    list_s.append(s)
     P = EvaluationClassifier(s)  # 10 * Batch_size
     return P
+
 def BatchNormalize(s,mu,v):
-    s_hat = (s-mu)/np.sqrt(np.diag(v+0.0001)) #In case of dividing by 0
+    s_hat = (s-mu)/(np.sqrt((v+0.000001))) #In case of dividing by 0
     return s_hat
+
+
+
+def BatchNormBackPass(g, list_s, l,batch_size):   # L MEANS LAYER IN BACKPASS HERE !!!
+    s = list_s[l]
+    mu = np.mean(s,1)
+    mu = np.reshape(mu,[np.size(mu),1])
+    v = np.mean(np.power(s-mu,2),1)
+    v = np.reshape(v,[np.size(v),1])
+    V_b = (v + 0.000001)
+
+    grad_mu = - np.reshape(np.sum(g,1),[np.size(np.sum(g,1)),1]) * np.power(V_b,-1/2)
+    grad_v = (-1/2) * np.reshape(np.sum(g * (s-mu),1),[np.size(np.sum(g * (s-mu),1)),1]) *np.power(V_b, -3/2)
+
+    #print(grad_v.shape)
+#    print(np.shape(np.power(V_b,-1/2)))
+    g = g * np.power(V_b,-1/2) + (2/batch_size) * grad_v * (s-mu) + grad_mu * (1/batch_size)
+    return g
 
 def ComputeGradients(list_W, list_b, input_data, input_label, lam, batch_size):
 
@@ -95,12 +114,16 @@ def ComputeGradients(list_W, list_b, input_data, input_label, lam, batch_size):
     Num = len(list_W)
     for i in range(Num-1):
         s = Compute_S(list_W[i].T, list_b[i], list_x[i])
+        list_s.append(s)
         mu = np.mean(s,1)
         mu = np.reshape(mu,[np.size(mu),1])
         v = np.mean(np.power(s-mu,2),1)
         v = np.reshape(v,[np.size(v),1])
-#        s = BatchNormalize(s,mu,v)
-        h = Compute_h(s) #RELU    # h = sigmoid(s)
+        if(BN==1):
+            s_hat = BatchNormalize(s,mu,v)
+        else:
+            s_hat = s
+        h = Compute_h(s_hat) #RELU    # h = sigmoid(s)
         list_x.append(h)
     s = Compute_S(list_W[Num-1].T, list_b[Num-1], h)
     list_s.append(s)
@@ -110,6 +133,8 @@ def ComputeGradients(list_W, list_b, input_data, input_label, lam, batch_size):
     grad_b_list = []
     grad_W_list = []
     for i in range(Num)[::-1]:
+        if(BN==1):
+            g = BatchNormBackPass(g,list_s,i,batch_size)
         W = list_W[i]
         h = list_x[i]
         grad_b = np.mean(g,1)
@@ -137,7 +162,6 @@ def ComputeAccuracy(P, input_label_no_onehot, batch_size):
 def Compute_momentum(grad_W_list, grad_b_list, v_W_list, v_b_list):
     for i in range(len(grad_b_list)):
         v_b_list[i] = rho * v_b_list[i] + learning_rate * grad_b_list[i]
-
         v_W_list[i] = rho * v_W_list[i] + learning_rate * grad_W_list[i]
     return v_W_list, v_b_list
 
@@ -155,19 +179,11 @@ def ComputeGradients_correct(list_W, list_b, input_data, input_label, lam, batch
     for j in range(layers):
         for i in range(np.size(list_b[j])):
             b_try = list_b
-    #        print(list_b[0])
-#           print(b_try[0])
             (b_try[j])[i] = (b_try[j])[i] + small
             P = Compute_P(list_W, b_try, input_data)
-   #          print(P)
-
-	#       print(b_try[0])
             c2, _ = ComputeCost(input_label, lam, batch_size, P, list_W)
-
-        #    print(list_b[0])
             (grad_b_pseudo[j])[i] = (c2-c)/small
             (b_try[j])[i] = (b_try[j])[i] - small
-
     return grad_W_pseudo, grad_b_pseudo
 
 '''
@@ -199,12 +215,13 @@ def ComputeGradients_correct(list_W, list_b, input_data, input_label, lam, batch
 
 
 #Parameter
-batch_size = 1
+BN = 0
+batch_size = 100
 lam = 0.0
 learning_rate = 0.05
 rho = 0.9
-MAX = 20
-decay_rate = 0.9
+MAX = 50
+decay_rate = 1
 training_data = 10000
 W_b_dimension = np.array([50,10])
 #Load data and initialization
@@ -216,6 +233,7 @@ data_1_mean = np.mean(data_1,1)
 data_1_mean = np.reshape(data_1_mean,[3072,1])
 data_1 = data_1 - data_1_mean
 data_2 = data_2 - data_1_mean
+
 
 #Start training!
 
@@ -243,19 +261,15 @@ for j in range(1):
     for epoch in range(MAX):
         learning_rate = learning_rate * decay_rate
         print("This is epoch",epoch)
-        learning_rate = learning_rate * 0.9
         for i in range(int(training_data/batch_size)):
-        #for i in range(1):
-            layers = 2
+
             input_data = data_1[:,i*batch_size:(i+1)*batch_size]
             input_label = label_1[:,i*batch_size:(i+1)*batch_size]
             input_label_no_onehot = label_no_onehot_1[i*batch_size:(i+1)*batch_size]
             grad_W_list, grad_b_list = ComputeGradients(list_W, list_b, input_data, input_label, lam, batch_size)
-
-            grad_W_pseudo, grad_b_pseudo = ComputeGradients_correct(list_W, list_b, input_data, input_label, lam, batch_size, layers)
-            print((grad_b_list[1]-grad_b_pseudo[1])/grad_b_list[1])
-    
-            exit()
+            # grad_W_pseudo, grad_b_pseudo = ComputeGradients_correct(list_W, list_b, input_data, input_label, lam, batch_size, layers)
+            # print((grad_b_list[1]-grad_b_pseudo[1])/grad_b_list[1])
+            # exit()
             [v_W_list, v_b_list] = Compute_momentum(grad_W_list, grad_b_list, v_W_list, v_b_list)
             for i in range(len(v_b_list)):
                 list_W[i] = list_W[i] - v_W_list[i]
@@ -307,6 +321,5 @@ plt.plot(x_axis,loss_store_2,'g',label='validation data')
 
 plt.legend()
 plt.savefig('loss.png')
-
 
 plt.show()
