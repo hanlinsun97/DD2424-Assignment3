@@ -66,10 +66,13 @@ def sigmoid(s):
 
 def Compute_P(list_W, list_b, input_data):
     list_x = []
+    list_s = []
     list_x.append(input_data)
     Num = len(list_W)
     for i in range(Num-1):
+
         s = Compute_S(list_W[i].T, list_b[i], list_x[i])
+        list_s.append(s)
         if(BN==1):
             mu = np.mean(s,1)
             mu = np.reshape(mu,[np.size(mu),1])
@@ -78,10 +81,12 @@ def Compute_P(list_W, list_b, input_data):
             s = BatchNormalize(s,mu,v)
         h = Compute_h(s) #RELU    # h = sigmoid(s)
         list_x.append(h)
+
     s = Compute_S(list_W[Num-1].T, list_b[Num-1], h)
+    list_s.append(s)
     P = EvaluationClassifier(s)  # 10 * Batch_size
 
-    return P, list_x
+    return P, list_x, list_s
 
 def BatchNormalize(s,mu,v):
     s_hat = (s-mu)/(np.sqrt((v+0.000001))) #In case of dividing by 0
@@ -104,13 +109,13 @@ def BatchNormBackPass(g, list_s, l,batch_size):   # L MEANS LAYER IN BACKPASS HE
     g = g * np.power(V_b,-1/2) + (2/batch_size) * grad_v * (s-mu) + grad_mu * (1/batch_size)
     return g
 
-def ComputeGradients(list_W, list_b, input_data, input_label, lam, batch_size,P, list_x):
+def ComputeGradients(list_W, list_b, input_data, input_label, lam, batch_size, list_x):
 
     # input_data with 3072 * Batch_size
     # input_label with 10 * Batch_size
-    #  list_s = []
-    #  list_x = []
-    #  list_x.append(input_data)
+    # list_s = []
+    # list_x = []
+    # list_x.append(input_data)
     #
     # for i in range(Num-1):
     #     s = Compute_S(list_W[i].T, list_b[i], list_x[i])
@@ -133,19 +138,32 @@ def ComputeGradients(list_W, list_b, input_data, input_label, lam, batch_size,P,
     grad_b_list = []
     grad_W_list = []
     for i in range(Num)[::-1]:
-    #    if(BN==1):
-    #        g = BatchNormBackPass(g,list_s,i,batch_size)
-        W = list_W[i]
-        h = list_x[i]
-        grad_b = np.mean(g,1)
-        grad_b = np.reshape(grad_b,[np.size(grad_b),1])
-        grad_W = np.transpose(np.dot(g,h.T)/batch_size + 2 * lam * W.T)
-        grad_b_list.append(grad_b)
-        grad_W_list.append(grad_W)
-        g = np.dot(W, g)
-        h[h > 0] = 1  # ReLU
-        # h = sigmoid(Compute_S(W1,b1,input_data))*sigmoid(1-Compute_S(W1, b1, input_data))   #Sigmoid
-        g = g * h
+        if (i>0):
+            if(BN==1):
+                g = BatchNormBackPass(g,list_s,i,batch_size)
+            W = list_W[i]
+            h = list_x[i]
+            grad_b = np.mean(g,1)
+            grad_b = np.reshape(grad_b,[np.size(grad_b),1])
+            grad_W = np.transpose(np.dot(g,h.T)/batch_size + 2 * lam * W.T)
+            grad_b_list.append(grad_b)
+            grad_W_list.append(grad_W)
+            g = np.dot(W, g)
+            h[h > 0] = 1  # ReLU
+            # h = sigmoid(Compute_S(W1,b1,input_data))*sigmoid(1-Compute_S(W1, b1, input_data))   #Sigmoid
+            g = g * h
+        else:
+            if(BN==1):
+                g = BatchNormBackPass(g,list_s,i,batch_size)
+            W = list_W[0]
+            h = input_data
+            grad_b = np.mean(g,1)
+            grad_b = np.reshape(grad_b,[np.size(grad_b),1])
+            grad_W = np.transpose(np.dot(g,h.T)/batch_size + 2 * lam * W.T)
+            grad_b_list.append(grad_b)
+            grad_W_list.append(grad_W)
+
+
     grad_b_list = grad_b_list[::-1]
     grad_W_list = grad_W_list[::-1]
     return grad_W_list, grad_b_list
@@ -215,7 +233,7 @@ def ComputeGradients_correct(list_W, list_b, input_data, input_label, lam, batch
 
 
 #Parameter
-BN = 1
+BN = 0
 batch_size = 100
 lam = 0.004
 learning_rate = 0.028
@@ -223,7 +241,7 @@ rho = 0.9
 MAX = 20
 decay_rate = 0.95
 training_data = 10000
-W_b_dimension = np.array([50,10])
+W_b_dimension = np.array([50,30,10])
 #Load data and initialization
 
 [data_1, label_1, data_length_1, label_no_onehot_1] = LoadBatch("data_batch_1.mat")
@@ -273,11 +291,10 @@ for j in range(1):
             # s = Compute_S(list_W[1].T, list_b[1], h)
             # P = EvaluationClassifier(s)
 
-            P,list_x = Compute_P(list_W, list_b, input_data)
-            grad_W_list, grad_b_list = ComputeGradients(list_W, list_b, input_data, input_label, lam, batch_size,P,list_x)
+            P,list_x, list_s = Compute_P(list_W, list_b, input_data)
+        #    h = list_x[1]
+            grad_W_list, grad_b_list = ComputeGradients(list_W, list_b, input_data, input_label, lam, batch_size, list_x)
 
-            # h = Compute_h(Compute_S(list_W[0].T, list_b[0], input_data))
-            #
             # g = P - input_label
             #
             # grad_b2 = np.mean(g,1)
@@ -294,12 +311,12 @@ for j in range(1):
             # grad_b1 = np.reshape(grad_b1,[np.size(grad_b1),1])
             # grad_b2 = np.reshape(grad_b2,[np.size(grad_b2),1])
             #
-            # grad_W_list.append(grad_W1)
-            # grad_W_list.append(grad_W2)
-            # grad_b_list.append(grad_b1)
-            # grad_b_list.append(grad_b2)
-
-
+            # # grad_W_list.append(grad_W1)
+            # # grad_W_list.append(grad_W2)
+            # # grad_b_list.append(grad_b1)
+            # # grad_b_list.append(grad_b2)
+            # #
+            # print(np.sum(grad_W1 - grad_W_list[0]))
 
 
 
@@ -332,13 +349,13 @@ for j in range(1):
 
 
 
-###### BUG FREE  ###
+###### BuG FREE  ###
             [v_W_list, v_b_list] = Compute_momentum(grad_W_list, grad_b_list, v_W_list, v_b_list)
             for i in range(len(v_b_list)):
                 list_W[i] = list_W[i] - v_W_list[i]
                 list_b[i] = list_b[i] - v_b_list[i]
 
-        P_use_1,_ = Compute_P(list_W, list_b, data_1)
+        P_use_1,_,_ = Compute_P(list_W, list_b, data_1)
         J,loss = ComputeCost(label_1, lam, data_length_1, P_use_1, list_W)
         acc = ComputeAccuracy(P_use_1,label_no_onehot_1, data_length_1)
         J_store_1.append(J)
@@ -347,7 +364,7 @@ for j in range(1):
         print("Training acc: ",acc)
             # We run our model on validation set
 
-        P_use_2,_ = Compute_P(list_W, list_b, data_2)
+        P_use_2,_,_ = Compute_P(list_W, list_b, data_2)
         J,loss = ComputeCost(label_2, lam, data_length_2, P_use_2, list_W)
         acc = ComputeAccuracy(P_use_2,label_no_onehot_2, data_length_2)
         J_store_2.append(J)
